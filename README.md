@@ -12,14 +12,14 @@ or
 
 ## Prerequisites
 
-You need to install `ffmpeg`.
-You need to have a api-key of lastFM. Check it: https://www.last.fm/api
+- You need to install `ffmpeg`.
+- You need to have a api-key of lastFM. Check it: https://www.last.fm/api
 
 ## Simple Usage
 
-1 - Open the console.
-1 - You have to be in the album directory.
-2 - Write `mp3-to-itunes apiKey='your-lastfm-api-key'`
+- Open the console.
+- You have to be in the album directory.
+- Write `mp3-to-itunes apiKey='your-lastfm-api-key'`
 
 ## Technical Decisions.
 
