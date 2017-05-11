@@ -9,7 +9,6 @@
     "async": "^2.4.0",
     "ffmetadata": "^1.4.0",
     "last-fm": "^2.0.0",
-    "latinize": "^0.4.0",
     "shelljs": "^0.7.7"
   },
   "description": "Fill metadata on MP3s to fit Itunes.",
