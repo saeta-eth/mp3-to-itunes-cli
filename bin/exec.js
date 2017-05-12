@@ -1,8 +1,8 @@
 #! /usr/bin/env node
-var shell = require("shelljs");
+var shell = require('shelljs');
 var ConvertItunesCommand = require('../');
 
-var mp3Files = shell.find(shell.pwd()).filter(function(file) {
+var mp3Files = shell.find('.').filter(function(file) {
   return file.match(/\.mp3$/);
 });
 
