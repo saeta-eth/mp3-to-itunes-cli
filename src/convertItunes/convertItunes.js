@@ -1,11 +1,19 @@
 /* eslint class-methods-use-this:
 [ "error",
-  {"exceptMethods": ["checkTypes", "isArray", "fillWithNewExt", "convert", "throwIfMissing"] }
+  {"exceptMethods": [
+    "isString",
+    "isArray",
+    "throwIfMissing",
+    "getMetadata",
+    "setMetadata",
+    "getTrackWithFormat",
+    "fillMetadataToMp3"
+  ]}
 ] */
 
 import LastFM from 'last-fm';
-import ffmetadata  from 'ffmetadata';
-import async  from 'async';
+import ffmetadata from 'ffmetadata';
+import async from 'async';
 
 class ConvertItunes {
   constructor(
@@ -47,7 +55,7 @@ class ConvertItunes {
     * @param {any} value be a arrauy
   */
   isArray(obj) {
-    if ( !(!!obj && obj.constructor === Array) ) {
+    if (!(!!obj && obj.constructor === Array)) {
       throw new Error('Wrong type parameter.');
     }
   }
@@ -70,15 +78,18 @@ class ConvertItunes {
   }
 
   /**
-    * Get mp3 metadata. 
+    * Get mp3 metadata.
     * @param {string} file path (eg. /path/to/song.mp3)
     * @param {getMetadata~requestCallback} callback
   */
 
   getMetadata(file, callback) {
-    ffmetadata.read(file, function(err, data) {
-      if (err) callback(err);
-      else callback(null, data);
+    ffmetadata.read(file, (err, data) => {
+      if (err) {
+        callback(err);
+      } else {
+        callback(null, data);
+      }
     });
   }
 
@@ -89,9 +100,12 @@ class ConvertItunes {
   */
 
   setMetadata(file, metadata, options, callback) {
-    ffmetadata.write(file, metadata, options, function(err) {
-      if (err) callback(err);
-      else callback(null, 'Data written');
+    ffmetadata.write(file, metadata, options, (err) => {
+      if (err) {
+        callback(err);
+      } else {
+        callback(null, 'Data written');
+      }
     });
   }
 
@@ -103,64 +117,70 @@ class ConvertItunes {
   getTrackWithFormat(file) {
     const lastDot = file.lastIndexOf('.');
     let track = file.split('-').pop().substring(0, lastDot).replace(/\([^()]*\)/g, '').split('.')[0]; // TODO: remove string between paretheses.
-    const firstDigit = track[0].match(/(\d+)/);
+    const firstDigit = track.match(/(\d+)/);
     if (firstDigit && firstDigit !== -1) {
       const regex = new RegExp(firstDigit[0], 'g');
       track = track.replace(regex, ''); // TODO: remove numbers.
     }
-    
-    return track.normalize('NFD').replace(/[\u0300-\u036f]/g, "").trim(); // TODO: remove accents.
+
+    return track.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim(); // TODO: remove accents.
   }
 
   /**
     * Search track in LastFM API and filling this data on metadata of mp3.
+    * @param {array} paths of mp3 files (eg. /path/to/song.mp3)
     * @param {fillMetadataToMp3~requestCallback} callbackEnd
   */
 
   fillMetadataToMp3(mp3Files, callbackEnd) {
-    const that = this;
     const lastfm = new LastFM(this.apiKey, 'MyApp/1.0.0 (http://example.com)');
     async.forEach(mp3Files, (mp3, callbackEach) => {
       const file = mp3.file;
       const path = mp3.path;
       async.waterfall([
         (callback) => {
-          that.getMetadata(path, callback);
+          this.getMetadata(path, callback);
         },
         (meta, callback) => {
           const track = this.getTrackWithFormat(file);
-          lastfm.trackInfo({ track: track, artist: meta.artist }, (err, data) => {
+          lastfm.trackInfo({
+            track: track,
+            artist: meta.artist,
+          }, (err, data) => {
             if (err) {
               callback(err);
             } else {
-              if(data) {
+              if (data) {
                 const album = data.album || '';
+                const isObject = typeof album === 'object';
                 const metadata = {
                   title: data.name,
                   artist: data.artist.name,
-                  album: !!String(album) ? album.title : album,
-                  track: !!String(album) ? album['@attr'].position : album,
-                  comment: 'Apple Lossless created by mp3-to-itunes module.'
+                  album: isObject ? album.title : album,
+                  track: isObject ? album['@attr'].position : album,
+                  comment: 'Apple Lossless created by mp3-to-itunes module.',
                 };
 
-                let options = {}
-                if (!!String(album) && album.image[2]['#text'] !== '') { // TODO: Check if exist artwork.
+                let options = {};
+                // TODO: Check if exist artwork.
+                if (!!String(album) && album.image[2]['#text'] !== '') {
                   options.attachments = [album.image[2]['#text']];
                   this.thumbnails.push(album.image[2]['#text']);
                 } else {
                   if (this.thumbnails.length) {
-                    const thumbnails = this.thumbnails.reduce(function(prev, cur) {
+                    const thumbnails = this.thumbnails.reduce((prev, cur) => {
                       prev[cur] = (prev[cur] || 0) + 1;
                       return prev;
                     }, {});
-                    if (Object.keys(thumbnails).length === 1) { // TODO: If there is only one artwork I assume the directory is an album.
+                    // TODO: If there is only one artwork I assume the directory is an album.
+                    if (Object.keys(thumbnails).length === 1) {
                       options.attachments = Object.keys(thumbnails);
                     }
                   }
                 }
-                this.setMetadata(path, metadata, options, callback)
+                this.setMetadata(path, metadata, options, callback);
               } else {
-                callback('Something is wrong.');
+                callback('Something is wrong with: ' + track );
               }
             }
           });
@@ -172,15 +192,15 @@ class ConvertItunes {
         } else {
           callbackEach(null, results);
         }
-      });    
+      });
     },
-    (err, results) => {
+    (err) => {
       if (err) {
         callbackEnd(err);
       } else {
         callbackEnd(null, {
           status: 'OK',
-          message: 'The mp3 format is already iTunes.'
+          message: 'The mp3 format is already iTunes.',
         });
       }
     });
@@ -191,7 +211,7 @@ class ConvertItunes {
     * @param {init~requestCallback} callback
   */
   init(callback) {
-    this.fillMetadataToMp3(this.mp3Files ,(err, success) => {
+    this.fillMetadataToMp3(this.mp3Files, (err, success) => {
       if (err) {
         callback(err);
       } else {
